@@ -1,5 +1,6 @@
 package com.restaurant.model;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,6 +33,9 @@ public class Bill implements Serializable {
     private Integer userId;
     private String billedByUser;
     private List<OrderItem> orderItems;
+    private String tableNumber;
+    private String paymentStatus;
+    private String notes;
     
     /**
      * Payment Method Enumeration
@@ -204,6 +208,39 @@ public class Bill implements Serializable {
     public void addOrderItem(OrderItem orderItem) {
         this.orderItems.add(orderItem);
         calculateTotals();
+    }
+    
+    // Alias methods for compatibility
+    public List<OrderItem> getItems() {
+        return getOrderItems();
+    }
+    
+    public LocalDateTime getCreatedAt() {
+        return getBilledAt();
+    }
+    
+    public String getTableNumber() {
+        return tableNumber;
+    }
+    
+    public void setTableNumber(String tableNumber) {
+        this.tableNumber = tableNumber;
+    }
+    
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+    
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+    
+    public String getNotes() {
+        return notes;
+    }
+    
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
     
     @Override

@@ -1,5 +1,6 @@
 package com.restaurant.model;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
@@ -22,6 +23,7 @@ public class OrderItem implements Serializable {
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
+    private String notes;  // Special instructions for this item
     
     /**
      * Default constructor
@@ -100,6 +102,14 @@ public class OrderItem implements Serializable {
     
     public void setSubtotal(BigDecimal subtotal) {
         this.subtotal = subtotal;
+    }
+    
+    public String getNotes() {
+        return notes;
+    }
+    
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
     
     /**

@@ -1,5 +1,6 @@
 package com.restaurant.model;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -16,6 +17,7 @@ public class User implements Serializable {
     private static final long serialVersionUID = 1L;
     
     private Integer userId;
+    private String employeeId;  // 4-digit ID for SERVER and CHEF
     private String fullName;
     private String emailAddress;
     private String username;
@@ -31,9 +33,10 @@ public class User implements Serializable {
      * User Role Enumeration
      */
     public enum UserRole {
-        EMPLOYEE("Employee"),
         ADMIN("Administrator"),
-        MANAGER("Manager");
+        SERVER("Server"),
+        CHEF("Chef"),
+        CUSTOMER("Customer");
         
         private final String displayName;
         
@@ -50,7 +53,7 @@ public class User implements Serializable {
      * Default constructor
      */
     public User() {
-        this.role = UserRole.EMPLOYEE;
+        this.role = UserRole.CUSTOMER;
         this.isActive = true;
         this.createdAt = LocalDateTime.now();
     }
@@ -79,11 +82,17 @@ public class User implements Serializable {
         this.userId = userId;
     }
     
-    public String getFullName() {
-        return fullName;
+    public String getEmployeeId() {
+        return employeeId;
     }
     
-    public void setFullName(String fullName) {
+    public void setEmployeeId(String employeeId) {
+        this.employeeId = employeeId;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }    public void setFullName(String fullName) {
         this.fullName = fullName;
     }
     
@@ -163,6 +172,7 @@ public class User implements Serializable {
     public String toString() {
         return "User{" +
                 "userId=" + userId +
+                ", employeeId='" + employeeId + '\'' +
                 ", fullName='" + fullName + '\'' +
                 ", emailAddress='" + emailAddress + '\'' +
                 ", username='" + username + '\'' +

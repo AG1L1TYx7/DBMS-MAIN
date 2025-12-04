@@ -5,11 +5,18 @@ import com.restaurant.controller.AuthenticationController;
 import com.restaurant.controller.OrderController;
 import com.restaurant.controller.ProductController;
 import com.restaurant.controller.UserController;
+import com.restaurant.controller.ScheduleController;
 import com.restaurant.model.Product;
 import com.restaurant.model.Product.ProductCategory;
 import com.restaurant.model.User;
 import com.restaurant.model.User.UserRole;
 import com.restaurant.model.Bill;
+import com.restaurant.model.OrderItem;
+import com.restaurant.model.TimeClock;
+import com.restaurant.dao.TimeClockDAO;
+import com.restaurant.dao.TimeClockDAOImpl;
+import com.restaurant.dao.UserDAO;
+import com.restaurant.dao.UserDAOImpl;
 
 import javax.swing.*;
 import javax.swing.border.*;
@@ -18,6 +25,8 @@ import java.awt.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
+import java.sql.SQLException;
 
 /**
  * Admin View - Dashboard and Management Interface
@@ -82,6 +91,8 @@ public class AdminView extends JFrame {
         tabbedPane.addTab("📦 Inventory", new InventoryView());
         tabbedPane.addTab("📝 Orders", createOrdersPanel());
         tabbedPane.addTab("👥 Users", createUsersPanel());
+        tabbedPane.addTab("⏰ Time Clock", createTimeClockPanel());
+        tabbedPane.addTab("📅 Schedules", new AdminSchedulePanel());
         
         add(tabbedPane, BorderLayout.CENTER);
     }
@@ -1185,31 +1196,66 @@ public class AdminView extends JFrame {
         }
         
         String billNumber = (String) ordersTable.getValueAt(selectedRow, 0);
-        String dateTime = (String) ordersTable.getValueAt(selectedRow, 1);
-        int items = (Integer) ordersTable.getValueAt(selectedRow, 2);
-        String subtotal = (String) ordersTable.getValueAt(selectedRow, 3);
-        String tax = (String) ordersTable.getValueAt(selectedRow, 4);
-        String total = (String) ordersTable.getValueAt(selectedRow, 5);
-        String payment = (String) ordersTable.getValueAt(selectedRow, 6);
-        String cashier = (String) ordersTable.getValueAt(selectedRow, 7);
         
-        String details = (
-                """
-                Bill Number: %s
-                Date & Time: %s
-                Total Items: %d
-                Subtotal: %s
-                Tax: %s
-                Total: %s
-                Payment Method: %s
-                Cashier: %s""").formatted(
-                billNumber, dateTime, items, subtotal, tax, total, payment, cashier
-        );
+        // Fetch the full bill with order items
+        List<Bill> allBills = orderController.getAllBills();
+        Bill selectedBill = allBills.stream()
+            .filter(b -> b.getBillNumber().equals(billNumber))
+            .findFirst()
+            .orElse(null);
+        
+        if (selectedBill == null) {
+            JOptionPane.showMessageDialog(this,
+                "Could not find order details",
+                "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        // Build order items list
+        StringBuilder itemsBuilder = new StringBuilder();
+        itemsBuilder.append("═══════════════════════════════════════\n");
+        itemsBuilder.append("              ORDER ITEMS\n");
+        itemsBuilder.append("═══════════════════════════════════════\n\n");
+        
+        List<OrderItem> orderItems = selectedBill.getOrderItems();
+        if (orderItems != null && !orderItems.isEmpty()) {
+            for (OrderItem item : orderItems) {
+                itemsBuilder.append(String.format("%-25s x%d\n", 
+                    item.getProductName(), item.getQuantity()));
+                itemsBuilder.append(String.format("   Unit Price: $%.2f  |  Subtotal: $%.2f\n\n",
+                    item.getUnitPrice(), item.getSubtotal()));
+            }
+        } else {
+            itemsBuilder.append("No items found for this order.\n\n");
+        }
+        
+        itemsBuilder.append("═══════════════════════════════════════\n");
+        itemsBuilder.append("            ORDER SUMMARY\n");
+        itemsBuilder.append("═══════════════════════════════════════\n");
+        itemsBuilder.append(String.format("Bill Number:    %s\n", selectedBill.getBillNumber()));
+        itemsBuilder.append(String.format("Date & Time:    %s\n", 
+            selectedBill.getBilledAt() != null ? 
+            selectedBill.getBilledAt().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) : "N/A"));
+        itemsBuilder.append(String.format("Total Items:    %d\n", selectedBill.getTotalItems()));
+        itemsBuilder.append(String.format("Subtotal:       $%.2f\n", selectedBill.getNetAmount()));
+        itemsBuilder.append(String.format("Tax:            $%.2f\n", selectedBill.getTaxAmount()));
+        itemsBuilder.append(String.format("Total:          $%.2f\n", selectedBill.getTotalAmount()));
+        itemsBuilder.append(String.format("Payment:        %s\n", selectedBill.getPaymentMethod().name()));
+        itemsBuilder.append(String.format("Cashier:        %s\n", 
+            selectedBill.getBilledByUser() != null ? selectedBill.getBilledByUser() : "N/A"));
+        itemsBuilder.append("═══════════════════════════════════════");
+        
+        // Show in a scrollable text area for better display
+        javax.swing.JTextArea textArea = new javax.swing.JTextArea(itemsBuilder.toString());
+        textArea.setEditable(false);
+        textArea.setFont(new java.awt.Font("Monospaced", java.awt.Font.PLAIN, 12));
+        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(textArea);
+        scrollPane.setPreferredSize(new java.awt.Dimension(450, 400));
         
         JOptionPane.showMessageDialog(this,
-            details,
+            scrollPane,
             "Order Details - " + billNumber,
-            JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.PLAIN_MESSAGE);
     }
     
     private void exportOrders() {
@@ -1219,5 +1265,212 @@ public class AdminView extends JFrame {
             This will allow exporting orders to CSV/PDF format.""",
             "Export Orders",
             JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    // ==================== TIME CLOCK PANEL ====================
+    
+    private JPanel createTimeClockPanel() {
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        panel.setBackground(BACKGROUND);
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        
+        // Header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        
+        JLabel titleLabel = new JLabel("⏰ Employee Time Clock Records");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        titleLabel.setForeground(new Color(44, 62, 80));
+        headerPanel.add(titleLabel, BorderLayout.WEST);
+        
+        // Refresh button
+        JButton refreshBtn = new JButton("🔄 Refresh");
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        refreshBtn.setBackground(PRIMARY_COLOR);
+        refreshBtn.setForeground(Color.WHITE);
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        headerPanel.add(refreshBtn, BorderLayout.EAST);
+        
+        panel.add(headerPanel, BorderLayout.NORTH);
+        
+        // Table for time clock records
+        String[] columns = {"Employee ID", "Employee Name", "Role", "Clock In", "Clock Out", "Total Hours", "Status"};
+        DefaultTableModel timeClockTableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable timeClockTable = new JTable(timeClockTableModel);
+        timeClockTable.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        timeClockTable.setRowHeight(35);
+        timeClockTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        timeClockTable.getTableHeader().setBackground(PRIMARY_COLOR);
+        timeClockTable.getTableHeader().setForeground(Color.WHITE);
+        timeClockTable.setSelectionBackground(new Color(52, 152, 219));
+        timeClockTable.setSelectionForeground(Color.WHITE);
+        timeClockTable.setGridColor(new Color(189, 195, 199));
+        
+        JScrollPane scrollPane = new JScrollPane(timeClockTable);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199)));
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        // Bottom panel with filter options
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        bottomPanel.setOpaque(false);
+        
+        JLabel filterLabel = new JLabel("Filter by Date:");
+        filterLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        bottomPanel.add(filterLabel);
+        
+        String[] filterOptions = {"Today", "This Week", "This Month", "All Records"};
+        JComboBox<String> filterCombo = new JComboBox<>(filterOptions);
+        filterCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        bottomPanel.add(filterCombo);
+        
+        JButton viewActiveBtn = new JButton("👀 Currently Clocked In");
+        viewActiveBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        viewActiveBtn.setBackground(ACCENT_COLOR);
+        viewActiveBtn.setForeground(Color.WHITE);
+        viewActiveBtn.setFocusPainted(false);
+        viewActiveBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        bottomPanel.add(viewActiveBtn);
+        
+        panel.add(bottomPanel, BorderLayout.SOUTH);
+        
+        // Load initial data
+        loadTimeClockData(timeClockTableModel, "Today");
+        
+        // Event listeners
+        refreshBtn.addActionListener(e -> loadTimeClockData(timeClockTableModel, (String) filterCombo.getSelectedItem()));
+        filterCombo.addActionListener(e -> loadTimeClockData(timeClockTableModel, (String) filterCombo.getSelectedItem()));
+        viewActiveBtn.addActionListener(e -> showActiveClockedInEmployees());
+        
+        return panel;
+    }
+    
+    private void loadTimeClockData(DefaultTableModel model, String filter) {
+        model.setRowCount(0);
+        TimeClockDAO timeClockDAO = new TimeClockDAOImpl();
+        UserDAO userDAO = new UserDAOImpl();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        
+        try {
+            List<TimeClock> records;
+            LocalDate today = LocalDate.now();
+            
+            switch (filter) {
+                case "Today":
+                    records = timeClockDAO.getTodaysRecords();
+                    break;
+                case "This Week":
+                    LocalDate weekStart = today.minusDays(today.getDayOfWeek().getValue() - 1);
+                    records = timeClockDAO.getRecordsByDateRange(weekStart, today);
+                    break;
+                case "This Month":
+                    LocalDate monthStart = today.withDayOfMonth(1);
+                    records = timeClockDAO.getRecordsByDateRange(monthStart, today);
+                    break;
+                default: // All Records - get last 30 days
+                    records = timeClockDAO.getRecordsByDateRange(today.minusDays(30), today);
+                    break;
+            }
+            
+            for (TimeClock record : records) {
+                // Get user info
+                User user = userDAO.findUserById(record.getUserId()).orElse(null);
+                String employeeName = user != null ? user.getFullName() : "Unknown";
+                String role = user != null ? user.getRole().toString() : "N/A";
+                
+                String clockIn = record.getClockInTime() != null ? 
+                    record.getClockInTime().format(formatter) : "N/A";
+                String clockOut = record.getClockOutTime() != null ? 
+                    record.getClockOutTime().format(formatter) : "Still Working";
+                String totalHours = record.getTotalHours() != null ? 
+                    String.format("%.2f hrs", record.getTotalHours()) : "-";
+                String status = record.getStatus().toString();
+                
+                model.addRow(new Object[]{
+                    record.getEmployeeId(),
+                    employeeName,
+                    role,
+                    clockIn,
+                    clockOut,
+                    totalHours,
+                    status
+                });
+            }
+            
+            if (records.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                    "No time clock records found for the selected period.",
+                    "No Records",
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                "Error loading time clock data: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void showActiveClockedInEmployees() {
+        TimeClockDAO timeClockDAO = new TimeClockDAOImpl();
+        UserDAO userDAO = new UserDAOImpl();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        
+        try {
+            List<TimeClock> activeRecords = timeClockDAO.getCurrentlyClockedIn();
+            
+            if (activeRecords.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                    "No employees are currently clocked in.",
+                    "Currently Clocked In",
+                    JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            
+            StringBuilder sb = new StringBuilder();
+            sb.append("═══════════════════════════════════════════\n");
+            sb.append("       CURRENTLY CLOCKED IN EMPLOYEES\n");
+            sb.append("═══════════════════════════════════════════\n\n");
+            
+            for (TimeClock record : activeRecords) {
+                User user = userDAO.findUserById(record.getUserId()).orElse(null);
+                String name = user != null ? user.getFullName() : "Unknown";
+                String role = user != null ? user.getRole().toString() : "N/A";
+                
+                sb.append(String.format("Employee ID: %s\n", record.getEmployeeId()));
+                sb.append(String.format("Name: %s\n", name));
+                sb.append(String.format("Role: %s\n", role));
+                sb.append(String.format("Clocked In At: %s\n", 
+                    record.getClockInTime().format(formatter)));
+                sb.append("───────────────────────────────────────────\n");
+            }
+            
+            sb.append(String.format("\nTotal Employees Clocked In: %d", activeRecords.size()));
+            
+            JTextArea textArea = new JTextArea(sb.toString());
+            textArea.setEditable(false);
+            textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+            JScrollPane scrollPane = new JScrollPane(textArea);
+            scrollPane.setPreferredSize(new Dimension(400, 350));
+            
+            JOptionPane.showMessageDialog(this,
+                scrollPane,
+                "Currently Clocked In",
+                JOptionPane.PLAIN_MESSAGE);
+                
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                "Error loading active clock-ins: " + ex.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
     }
 }

@@ -28,22 +28,29 @@ public class UserDAOImpl implements UserDAO {
     
     @Override
     public User createUser(User user) throws SQLException {
-        String sql = "INSERT INTO users (full_name, email_address, username, phone_number, " +
+        // Generate employee ID for SERVER and CHEF roles
+        if (user.getRole() == UserRole.SERVER || user.getRole() == UserRole.CHEF) {
+            String employeeId = generateEmployeeId();
+            user.setEmployeeId(employeeId);
+        }
+        
+        String sql = "INSERT INTO users (employee_id, full_name, email_address, username, phone_number, " +
                     "password_hash, address, role, is_active, created_at) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
-            stmt.setString(1, user.getFullName());
-            stmt.setString(2, user.getEmailAddress());
-            stmt.setString(3, user.getUsername());
-            stmt.setString(4, user.getPhoneNumber());
-            stmt.setString(5, user.getPasswordHash());
-            stmt.setString(6, user.getAddress());
-            stmt.setString(7, user.getRole().name());
-            stmt.setBoolean(8, user.isActive());
-            stmt.setTimestamp(9, Timestamp.valueOf(user.getCreatedAt()));
+            stmt.setString(1, user.getEmployeeId());
+            stmt.setString(2, user.getFullName());
+            stmt.setString(3, user.getEmailAddress());
+            stmt.setString(4, user.getUsername());
+            stmt.setString(5, user.getPhoneNumber());
+            stmt.setString(6, user.getPasswordHash());
+            stmt.setString(7, user.getAddress());
+            stmt.setString(8, user.getRole().name());
+            stmt.setBoolean(9, user.isActive());
+            stmt.setTimestamp(10, Timestamp.valueOf(user.getCreatedAt()));
             
             int affectedRows = stmt.executeUpdate();
             
@@ -129,12 +136,26 @@ public class UserDAOImpl implements UserDAO {
                 if (rs.next()) {
                     String storedHash = rs.getString("password_hash");
                     
+                    // Validate hash format before attempting BCrypt check
+                    if (storedHash == null || storedHash.length() < 59 || !storedHash.startsWith("$2")) {
+                        System.err.println("Invalid password hash for user: " + username + 
+                                         " (length: " + (storedHash != null ? storedHash.length() : 0) + 
+                                         "). Please use signup form to create users.");
+                        return Optional.empty();
+                    }
+                    
                     // Verify password using BCrypt
-                    if (BCrypt.checkpw(password, storedHash)) {
-                        User user = mapResultSetToUser(rs);
-                        // Update last login time
-                        updateLastLogin(user.getUserId());
-                        return Optional.of(user);
+                    try {
+                        if (BCrypt.checkpw(password, storedHash)) {
+                            User user = mapResultSetToUser(rs);
+                            // Update last login time
+                            updateLastLogin(user.getUserId());
+                            return Optional.of(user);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("BCrypt verification failed for user: " + username + 
+                                         " - " + e.getMessage());
+                        return Optional.empty();
                     }
                 }
             }
@@ -258,6 +279,7 @@ public class UserDAOImpl implements UserDAO {
     private User mapResultSetToUser(ResultSet rs) throws SQLException {
         User user = new User();
         user.setUserId(rs.getInt("user_id"));
+        user.setEmployeeId(rs.getString("employee_id"));
         user.setFullName(rs.getString("full_name"));
         user.setEmailAddress(rs.getString("email_address"));
         user.setUsername(rs.getString("username"));
@@ -278,5 +300,67 @@ public class UserDAOImpl implements UserDAO {
         }
         
         return user;
+    }
+    
+    @Override
+    public String generateEmployeeId() throws SQLException {
+        String sql = "SELECT MAX(CAST(employee_id AS UNSIGNED)) FROM users WHERE employee_id IS NOT NULL";
+        
+        try (Connection conn = dbConfig.createNewConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            int nextId = 1001; // Start from 1001
+            
+            if (rs.next()) {
+                int maxId = rs.getInt(1);
+                if (maxId >= 1001) {
+                    nextId = maxId + 1;
+                }
+            }
+            
+            // Ensure 4 digits
+            if (nextId > 9999) {
+                throw new SQLException("Employee ID limit reached");
+            }
+            
+            return String.format("%04d", nextId);
+        }
+    }
+    
+    @Override
+    public Optional<User> findUserByEmployeeId(String employeeId) throws SQLException {
+        String sql = "SELECT * FROM users WHERE employee_id = ?";
+        
+        try (Connection conn = dbConfig.createNewConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, employeeId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapResultSetToUser(rs));
+                }
+            }
+        }
+        
+        return Optional.empty();
+    }
+    
+    @Override
+    public List<User> getAllEmployees() throws SQLException {
+        String sql = "SELECT * FROM users WHERE role IN ('SERVER', 'CHEF') ORDER BY employee_id";
+        List<User> employees = new ArrayList<>();
+        
+        try (Connection conn = dbConfig.createNewConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            while (rs.next()) {
+                employees.add(mapResultSetToUser(rs));
+            }
+        }
+        
+        return employees;
     }
 }

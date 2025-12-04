@@ -3,6 +3,7 @@ package com.restaurant.view;
 import com.restaurant.controller.AuthenticationController;
 import com.restaurant.model.User;
 import com.restaurant.model.User.UserRole;
+import org.mindrot.jbcrypt.BCrypt;
 
 import javax.swing.*;
 import java.awt.*;
@@ -88,14 +89,14 @@ public class SignupView extends JFrame {
         
         // Title
         gbc.gridy++;
-        JLabel titleLabel = new JLabel("Join Our Team");
+        JLabel titleLabel = new JLabel("Welcome!");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 36));
         titleLabel.setForeground(WHITE);
         panel.add(titleLabel, gbc);
         
         // Subtitle
         gbc.gridy++;
-        JLabel subtitleLabel = new JLabel("Create Your Account");
+        JLabel subtitleLabel = new JLabel("Create Your Customer Account");
         subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 20));
         subtitleLabel.setForeground(new Color(255, 255, 255, 200));
         panel.add(subtitleLabel, gbc);
@@ -104,10 +105,10 @@ public class SignupView extends JFrame {
         gbc.gridy++;
         gbc.insets = new Insets(40, 20, 5, 20);
         String[] benefits = {
-            "✓ Easy Access Control",
-            "✓ Secure Authentication",
-            "✓ Role-Based Access",
-            "✓ Quick Registration"
+            "✓ Easy Online Ordering",
+            "✓ View Order History",
+            "✓ Quick Reservations",
+            "✓ Special Offers & Rewards"
         };
         
         JPanel benefitsPanel = new JPanel();
@@ -448,10 +449,12 @@ public class SignupView extends JFrame {
                 User newUser = new User();
                 newUser.setFullName(fullName);
                 newUser.setUsername(username);
-                newUser.setPasswordHash(password);
+                // Hash password with BCrypt before saving
+                String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt(12));
+                newUser.setPasswordHash(hashedPassword);
                 newUser.setEmailAddress(email);
                 newUser.setPhoneNumber(phone);
-                newUser.setRole(UserRole.EMPLOYEE); // Default role
+                newUser.setRole(UserRole.CUSTOMER);  // Customers only - Admin/Server/Chef created by admin
                 
                 return authController.registerUser(newUser);
             }

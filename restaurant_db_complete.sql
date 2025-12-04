@@ -14,6 +14,7 @@ USE restaurant_db;
 -- ============================================
 
 -- Users Table (3NF: No transitive dependencies)
+-- Roles: ADMIN, SERVER (waiter/waitress), CHEF, CUSTOMER
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -22,7 +23,7 @@ CREATE TABLE users (
     email_address VARCHAR(100) UNIQUE NOT NULL,
     phone_number VARCHAR(20) UNIQUE NOT NULL,
     address VARCHAR(255),
-    role ENUM('EMPLOYEE', 'ADMIN', 'MANAGER') DEFAULT 'EMPLOYEE',
+    role ENUM('ADMIN', 'SERVER', 'CHEF', 'CUSTOMER') DEFAULT 'CUSTOMER',
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login_at TIMESTAMP NULL,
@@ -98,10 +99,101 @@ CREATE TABLE restaurant_tables (
     INDEX idx_table_number (table_number)
 ) ENGINE=InnoDB;
 
--- Bills Table (3NF: Customer and user info referenced, not duplicated)
+-- ============================================
+-- ORDERS SYSTEM (3NF - For Kitchen Display)
+-- ============================================
+
+-- Order Types Table (3NF: Normalized order type info)
+CREATE TABLE order_types (
+    order_type_id INT AUTO_INCREMENT PRIMARY KEY,
+    type_name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE
+) ENGINE=InnoDB;
+
+-- Insert default order types
+INSERT INTO order_types (type_name, description) VALUES
+('DINE_IN', 'Customer eating at restaurant table'),
+('TAKEOUT', 'Customer picking up order to go'),
+('DELIVERY', 'Order to be delivered to customer');
+
+-- Orders Table (3NF: Main order tracking for kitchen/servers)
+-- This is separate from bills - orders track what kitchen needs to prepare
+CREATE TABLE orders (
+    order_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_number VARCHAR(50) UNIQUE NOT NULL,
+    order_type_id INT NOT NULL,
+    table_id INT,
+    customer_id INT,
+    server_id INT NOT NULL,
+    customer_name VARCHAR(100),
+    customer_phone VARCHAR(20),
+    guest_count INT DEFAULT 1 CHECK (guest_count > 0),
+    order_status ENUM('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED') DEFAULT 'PENDING',
+    kitchen_notes TEXT,
+    special_instructions TEXT,
+    priority ENUM('NORMAL', 'RUSH', 'VIP') DEFAULT 'NORMAL',
+    estimated_ready_time TIMESTAMP NULL,
+    actual_ready_time TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_type_id) REFERENCES order_types(order_type_id) ON DELETE RESTRICT,
+    FOREIGN KEY (table_id) REFERENCES restaurant_tables(table_id) ON DELETE SET NULL,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
+    FOREIGN KEY (server_id) REFERENCES users(user_id) ON DELETE RESTRICT,
+    INDEX idx_order_number (order_number),
+    INDEX idx_status (order_status),
+    INDEX idx_table (table_id),
+    INDEX idx_server (server_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_order_type (order_type_id)
+) ENGINE=InnoDB;
+
+-- Kitchen Order Items Table (3NF: Items for kitchen to prepare)
+CREATE TABLE kitchen_order_items (
+    kitchen_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    unit_price DECIMAL(10,2) NOT NULL CHECK (unit_price >= 0),
+    item_status ENUM('PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED') DEFAULT 'PENDING',
+    special_requests TEXT,
+    prepared_by INT,
+    prepared_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(product_id) ON DELETE RESTRICT,
+    FOREIGN KEY (prepared_by) REFERENCES users(user_id) ON DELETE SET NULL,
+    INDEX idx_order (order_id),
+    INDEX idx_product (product_id),
+    INDEX idx_status (item_status)
+) ENGINE=InnoDB;
+
+-- Order Status History Table (3NF: Audit trail for order status changes)
+CREATE TABLE order_status_history (
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    previous_status ENUM('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'),
+    new_status ENUM('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED') NOT NULL,
+    changed_by INT NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by) REFERENCES users(user_id) ON DELETE RESTRICT,
+    INDEX idx_order (order_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB;
+
+-- ============================================
+-- BILLING SYSTEM (Linked to Orders)
+-- ============================================
+
+-- Bills Table (3NF: Links to order, customer and user info referenced)
 CREATE TABLE bills (
     bill_id INT AUTO_INCREMENT PRIMARY KEY,
     bill_number VARCHAR(50) UNIQUE NOT NULL,
+    order_id INT,
     customer_id INT,
     user_id INT NOT NULL,
     table_id INT,
@@ -115,9 +207,11 @@ CREATE TABLE bills (
     change_amount DECIMAL(10,2),
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE SET NULL,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE SET NULL,
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE RESTRICT,
     FOREIGN KEY (table_id) REFERENCES restaurant_tables(table_id) ON DELETE SET NULL,
+    INDEX idx_order (order_id),
     INDEX idx_customer (customer_id),
     INDEX idx_user (user_id),
     INDEX idx_table (table_id),
@@ -221,6 +315,59 @@ CREATE TABLE customer_preferences (
 ) ENGINE=InnoDB;
 
 -- ============================================
+-- EMPLOYEE SCHEDULING SYSTEM (3NF)
+-- ============================================
+
+-- Employee Schedules Table (3NF: Schedule info depends only on schedule_id)
+-- Stores work schedules for servers and chefs
+CREATE TABLE employee_schedules (
+    schedule_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    schedule_date DATE NOT NULL,
+    shift_type ENUM('MORNING', 'AFTERNOON', 'EVENING', 'NIGHT', 'FULL_DAY') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    break_minutes INT DEFAULT 0 CHECK (break_minutes >= 0),
+    notes TEXT,
+    created_by INT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(user_id) ON DELETE RESTRICT,
+    INDEX idx_user (user_id),
+    INDEX idx_date (schedule_date),
+    INDEX idx_shift (shift_type),
+    INDEX idx_active (is_active),
+    INDEX idx_user_date (user_id, schedule_date),
+    UNIQUE KEY unique_user_date_shift (user_id, schedule_date, shift_type)
+) ENGINE=InnoDB;
+
+-- Leave Requests Table (3NF: Leave request info depends only on request_id)
+-- Stores leave/time-off requests from employees
+CREATE TABLE leave_requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    leave_type ENUM('ANNUAL', 'SICK', 'PERSONAL', 'EMERGENCY', 'UNPAID') NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    reason TEXT NOT NULL,
+    status ENUM('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED') DEFAULT 'PENDING',
+    approved_by INT,
+    approval_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (approved_by) REFERENCES users(user_id) ON DELETE SET NULL,
+    INDEX idx_user (user_id),
+    INDEX idx_status (status),
+    INDEX idx_dates (start_date, end_date),
+    INDEX idx_leave_type (leave_type),
+    INDEX idx_user_status (user_id, status),
+    CHECK (end_date >= start_date)
+) ENGINE=InnoDB;
+
+-- ============================================
 -- INITIAL DATA
 -- ============================================
 
@@ -237,11 +384,45 @@ INSERT INTO product_categories (category_name, description) VALUES
 ('APPETIZER', 'Starters and appetizers'),
 ('SPECIAL', 'Special menu items');
 
--- Insert Default Admin User (password: admin)
+-- Insert Default Users
+-- Default password for all users: 'password123' (BCrypt hash)
+-- You can change passwords after first login
 INSERT INTO users (username, password_hash, full_name, email_address, phone_number, address, role, is_active) VALUES
-('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'System Administrator', 'admin@restaurant.com', '1234567890', 'Restaurant HQ', 'ADMIN', TRUE),
-('manager', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Restaurant Manager', 'manager@restaurant.com', '1234567891', 'Restaurant HQ', 'MANAGER', TRUE),
-('cashier1', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'John Cashier', 'cashier1@restaurant.com', '1234567892', 'Restaurant Floor', 'EMPLOYEE', TRUE);
+('admin', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4b4a4k4k4k4k4k4k', 'System Administrator', 'admin@restaurant.com', '1234567890', 'Restaurant HQ', 'ADMIN', TRUE),
+('server1', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4b4a4k4k4k4k4k4k', 'Sarah Server', 'server1@restaurant.com', '1234567893', 'Restaurant Floor', 'SERVER', TRUE),
+('server2', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4b4a4k4k4k4k4k4k', 'Mike Waiter', 'server2@restaurant.com', '1234567894', 'Restaurant Floor', 'SERVER', TRUE),
+('chef1', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4b4a4k4k4k4k4k4k', 'Chef Marco', 'chef1@restaurant.com', '1234567895', 'Kitchen', 'CHEF', TRUE),
+('chef2', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4b4a4k4k4k4k4k4k', 'Chef Rita', 'chef2@restaurant.com', '1234567896', 'Kitchen', 'CHEF', TRUE);
+
+-- Insert Sample Employee Schedules
+INSERT INTO employee_schedules (user_id, schedule_date, shift_type, start_time, end_time, break_minutes, notes, created_by, is_active) VALUES
+-- Server 1 schedules (user_id 2)
+(2, CURDATE(), 'MORNING', '06:00:00', '14:00:00', 30, 'Regular morning shift', 1, TRUE),
+(2, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'AFTERNOON', '14:00:00', '22:00:00', 30, NULL, 1, TRUE),
+(2, DATE_ADD(CURDATE(), INTERVAL 3 DAY), 'MORNING', '06:00:00', '14:00:00', 30, NULL, 1, TRUE),
+(2, DATE_ADD(CURDATE(), INTERVAL 5 DAY), 'FULL_DAY', '09:00:00', '21:00:00', 60, 'Weekend full shift', 1, TRUE),
+-- Server 2 schedules (user_id 3)
+(3, CURDATE(), 'AFTERNOON', '14:00:00', '22:00:00', 30, NULL, 1, TRUE),
+(3, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'MORNING', '06:00:00', '14:00:00', 30, NULL, 1, TRUE),
+(3, DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'EVENING', '16:00:00', '00:00:00', 30, 'Evening shift', 1, TRUE),
+(3, DATE_ADD(CURDATE(), INTERVAL 4 DAY), 'AFTERNOON', '14:00:00', '22:00:00', 30, NULL, 1, TRUE),
+-- Chef 1 schedules (user_id 4)
+(4, CURDATE(), 'FULL_DAY', '08:00:00', '20:00:00', 60, 'Head chef duty', 1, TRUE),
+(4, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'FULL_DAY', '08:00:00', '20:00:00', 60, NULL, 1, TRUE),
+(4, DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'MORNING', '06:00:00', '14:00:00', 30, 'Breakfast prep', 1, TRUE),
+(4, DATE_ADD(CURDATE(), INTERVAL 4 DAY), 'FULL_DAY', '08:00:00', '20:00:00', 60, NULL, 1, TRUE),
+-- Chef 2 schedules (user_id 5)
+(5, CURDATE(), 'AFTERNOON', '12:00:00', '20:00:00', 30, 'Lunch and dinner prep', 1, TRUE),
+(5, DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'EVENING', '16:00:00', '00:00:00', 30, 'Dinner service', 1, TRUE),
+(5, DATE_ADD(CURDATE(), INTERVAL 3 DAY), 'FULL_DAY', '08:00:00', '20:00:00', 60, 'Weekend full shift', 1, TRUE),
+(5, DATE_ADD(CURDATE(), INTERVAL 5 DAY), 'MORNING', '06:00:00', '14:00:00', 30, NULL, 1, TRUE);
+
+-- Insert Sample Leave Requests
+INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, reason, status, approved_by, approval_notes) VALUES
+(2, 'ANNUAL', DATE_ADD(CURDATE(), INTERVAL 14 DAY), DATE_ADD(CURDATE(), INTERVAL 17 DAY), 'Family vacation planned', 'APPROVED', 1, 'Approved. Enjoy your vacation!'),
+(3, 'SICK', DATE_ADD(CURDATE(), INTERVAL 7 DAY), DATE_ADD(CURDATE(), INTERVAL 8 DAY), 'Doctor appointment and recovery', 'PENDING', NULL, NULL),
+(4, 'PERSONAL', DATE_ADD(CURDATE(), INTERVAL 21 DAY), DATE_ADD(CURDATE(), INTERVAL 21 DAY), 'Personal matters to attend', 'PENDING', NULL, NULL),
+(5, 'EMERGENCY', DATE_SUB(CURDATE(), INTERVAL 3 DAY), DATE_SUB(CURDATE(), INTERVAL 2 DAY), 'Family emergency', 'APPROVED', 1, 'Approved immediately');
 
 -- Insert Sample Products
 INSERT INTO products (product_name, category_id, price, description, stock_quantity, reorder_level, max_stock_level, unit) VALUES
@@ -285,9 +466,112 @@ INSERT INTO customers (full_name, email, phone, date_of_birth, address, membersh
 ('Gita Poudel', 'gita.poudel@email.com', '9841444444', '1992-11-25', 'Pokhara, Nepal', 'PLATINUM', 5000, 95000.00, 78, CURDATE()),
 ('Krishna Adhikari', 'krishna.adhikari@email.com', '9841555555', '1987-07-30', 'Chitwan, Nepal', 'SILVER', 1500, 32000.00, 35, DATE_SUB(CURDATE(), INTERVAL 3 DAY));
 
+-- Insert Sample Orders (for Kitchen Display)
+INSERT INTO orders (order_number, order_type_id, table_id, customer_id, server_id, customer_name, guest_count, order_status, kitchen_notes, priority) VALUES
+('ORD-20251204-001', 1, 3, 1, 2, 'Rajesh Kumar', 2, 'PREPARING', 'No onions in burger', 'NORMAL'),
+('ORD-20251204-002', 1, 5, 2, 2, 'Sita Sharma', 4, 'PENDING', NULL, 'NORMAL'),
+('ORD-20251204-003', 2, NULL, NULL, 3, 'Walk-in Customer', 1, 'READY', 'Extra napkins', 'RUSH'),
+('ORD-20251204-004', 1, 7, 4, 3, 'Gita Poudel', 6, 'CONFIRMED', 'VIP Guest - Priority service', 'VIP'),
+('ORD-20251204-005', 3, NULL, 5, 2, 'Krishna Adhikari', 1, 'PENDING', 'Delivery to Chitwan office', 'NORMAL');
+
+-- Insert Sample Kitchen Order Items
+INSERT INTO kitchen_order_items (order_id, product_id, quantity, unit_price, item_status, special_requests) VALUES
+-- Order 1 items (Table T-03)
+(1, 1, 2, 250.00, 'PREPARING', 'No onions'),
+(1, 10, 1, 120.00, 'READY', NULL),
+(1, 8, 2, 50.00, 'SERVED', NULL),
+-- Order 2 items (Table T-05)
+(2, 5, 2, 280.00, 'PENDING', NULL),
+(2, 16, 2, 150.00, 'PENDING', 'Extra spicy'),
+(2, 7, 4, 30.00, 'PENDING', NULL),
+-- Order 3 items (Takeout)
+(3, 2, 1, 220.00, 'READY', NULL),
+(3, 10, 1, 120.00, 'READY', 'Extra salt'),
+(3, 9, 1, 60.00, 'READY', NULL),
+-- Order 4 items (VIP Table T-07)
+(4, 18, 2, 450.00, 'PENDING', 'Chef special plating'),
+(4, 14, 6, 120.00, 'PENDING', NULL),
+(4, 15, 4, 180.00, 'PENDING', NULL),
+-- Order 5 items (Delivery)
+(5, 6, 2, 250.00, 'PENDING', 'Pack separately'),
+(5, 3, 2, 180.00, 'PENDING', NULL);
+
+-- Insert Order Status History
+INSERT INTO order_status_history (order_id, previous_status, new_status, changed_by, notes) VALUES
+(1, NULL, 'PENDING', 2, 'Order placed by server'),
+(1, 'PENDING', 'CONFIRMED', 4, 'Order confirmed by kitchen'),
+(1, 'CONFIRMED', 'PREPARING', 4, 'Started preparation'),
+(2, NULL, 'PENDING', 2, 'Order placed by server'),
+(3, NULL, 'PENDING', 3, 'Takeout order placed'),
+(3, 'PENDING', 'CONFIRMED', 4, 'Confirmed'),
+(3, 'CONFIRMED', 'PREPARING', 4, 'Cooking'),
+(3, 'PREPARING', 'READY', 4, 'Ready for pickup'),
+(4, NULL, 'PENDING', 3, 'VIP order placed'),
+(4, 'PENDING', 'CONFIRMED', 5, 'Priority confirmed'),
+(5, NULL, 'PENDING', 2, 'Delivery order placed');
+
 -- ============================================
 -- VIEWS FOR REPORTING
 -- ============================================
+
+-- Kitchen Display View (Shows pending orders for chefs)
+CREATE VIEW v_kitchen_display AS
+SELECT 
+    o.order_id,
+    o.order_number,
+    ot.type_name as order_type,
+    rt.table_number,
+    o.customer_name,
+    o.guest_count,
+    o.order_status,
+    o.priority,
+    o.kitchen_notes,
+    o.created_at as order_time,
+    u.full_name as server_name,
+    COUNT(koi.kitchen_item_id) as total_items,
+    SUM(CASE WHEN koi.item_status = 'PENDING' THEN 1 ELSE 0 END) as pending_items,
+    SUM(CASE WHEN koi.item_status = 'PREPARING' THEN 1 ELSE 0 END) as preparing_items,
+    SUM(CASE WHEN koi.item_status = 'READY' THEN 1 ELSE 0 END) as ready_items
+FROM orders o
+JOIN order_types ot ON o.order_type_id = ot.order_type_id
+LEFT JOIN restaurant_tables rt ON o.table_id = rt.table_id
+JOIN users u ON o.server_id = u.user_id
+LEFT JOIN kitchen_order_items koi ON o.order_id = koi.order_id
+WHERE o.order_status IN ('PENDING', 'CONFIRMED', 'PREPARING', 'READY')
+GROUP BY o.order_id, o.order_number, ot.type_name, rt.table_number, 
+         o.customer_name, o.guest_count, o.order_status, o.priority, 
+         o.kitchen_notes, o.created_at, u.full_name
+ORDER BY 
+    CASE o.priority WHEN 'VIP' THEN 1 WHEN 'RUSH' THEN 2 ELSE 3 END,
+    o.created_at;
+
+-- Kitchen Order Items Detail View
+CREATE VIEW v_kitchen_order_items AS
+SELECT 
+    koi.kitchen_item_id,
+    o.order_number,
+    ot.type_name as order_type,
+    rt.table_number,
+    p.product_name,
+    pc.category_name,
+    koi.quantity,
+    koi.item_status,
+    koi.special_requests,
+    o.priority,
+    o.kitchen_notes,
+    koi.created_at as item_ordered_at,
+    chef.full_name as prepared_by_name
+FROM kitchen_order_items koi
+JOIN orders o ON koi.order_id = o.order_id
+JOIN order_types ot ON o.order_type_id = ot.order_type_id
+LEFT JOIN restaurant_tables rt ON o.table_id = rt.table_id
+JOIN products p ON koi.product_id = p.product_id
+JOIN product_categories pc ON p.category_id = pc.category_id
+LEFT JOIN users chef ON koi.prepared_by = chef.user_id
+WHERE koi.item_status IN ('PENDING', 'PREPARING')
+ORDER BY 
+    CASE o.priority WHEN 'VIP' THEN 1 WHEN 'RUSH' THEN 2 ELSE 3 END,
+    koi.created_at;
 
 -- Daily Sales Summary View
 CREATE VIEW v_daily_sales_summary AS

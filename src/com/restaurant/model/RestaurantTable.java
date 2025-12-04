@@ -1,5 +1,6 @@
 package com.restaurant.model;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 

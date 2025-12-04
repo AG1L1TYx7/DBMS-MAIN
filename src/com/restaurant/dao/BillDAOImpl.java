@@ -34,13 +34,13 @@ public class BillDAOImpl implements BillDAO {
         PreparedStatement orderItemStmt = null;
         
         try {
-            conn = dbConfig.getConnection();
+            conn = dbConfig.createNewConnection();
             conn.setAutoCommit(false); // Start transaction
             
             // Insert bill
             String billSql = "INSERT INTO bills (user_id, bill_number, subtotal, tax_amount, " +
-                           "total_amount, payment_method, customer_name) " +
-                           "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                           "total_amount, payment_method) " +
+                           "VALUES (?, ?, ?, ?, ?, ?)";
             
             billStmt = conn.prepareStatement(billSql, Statement.RETURN_GENERATED_KEYS);
             billStmt.setInt(1, bill.getUserId());
@@ -49,7 +49,6 @@ public class BillDAOImpl implements BillDAO {
             billStmt.setBigDecimal(4, bill.getTaxAmount());
             billStmt.setBigDecimal(5, bill.getTotalAmount());
             billStmt.setString(6, bill.getPaymentMethod().name());
-            billStmt.setString(7, bill.getBilledByUser());
             
             int affectedRows = billStmt.executeUpdate();
             
@@ -66,18 +65,17 @@ public class BillDAOImpl implements BillDAO {
             }
             
             // Insert order items
-            String orderItemSql = "INSERT INTO order_items (bill_id, product_id, product_name, " +
-                                "quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?, ?)";
+            String orderItemSql = "INSERT INTO order_items (bill_id, product_id, " +
+                                "quantity, unit_price, subtotal) VALUES (?, ?, ?, ?, ?)";
             
             orderItemStmt = conn.prepareStatement(orderItemSql);
             
             for (OrderItem item : bill.getOrderItems()) {
                 orderItemStmt.setInt(1, bill.getBillId());
                 orderItemStmt.setInt(2, item.getProductId());
-                orderItemStmt.setString(3, item.getProductName());
-                orderItemStmt.setInt(4, item.getQuantity());
-                orderItemStmt.setBigDecimal(5, item.getUnitPrice());
-                orderItemStmt.setBigDecimal(6, item.getSubtotal());
+                orderItemStmt.setInt(3, item.getQuantity());
+                orderItemStmt.setBigDecimal(4, item.getUnitPrice());
+                orderItemStmt.setBigDecimal(5, item.getSubtotal());
                 orderItemStmt.addBatch();
             }
             
@@ -110,7 +108,7 @@ public class BillDAOImpl implements BillDAO {
     public Optional<Bill> findBillById(Integer billId) throws SQLException {
         String sql = "SELECT * FROM bills WHERE bill_id = ?";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setInt(1, billId);
@@ -132,15 +130,19 @@ public class BillDAOImpl implements BillDAO {
         String sql = "SELECT * FROM bills ORDER BY created_at DESC";
         List<Bill> bills = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
             while (rs.next()) {
                 Bill bill = mapResultSetToBill(rs);
-                bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
                 bills.add(bill);
             }
+        }
+        
+        // Fetch order items for each bill after closing the bills ResultSet
+        for (Bill bill : bills) {
+            bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
         }
         
         return bills;
@@ -151,7 +153,7 @@ public class BillDAOImpl implements BillDAO {
         String sql = "SELECT * FROM bills WHERE user_id = ? ORDER BY created_at DESC";
         List<Bill> bills = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setInt(1, userId);
@@ -159,10 +161,14 @@ public class BillDAOImpl implements BillDAO {
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     Bill bill = mapResultSetToBill(rs);
-                    bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
                     bills.add(bill);
                 }
             }
+        }
+        
+        // Fetch order items after closing the bills ResultSet
+        for (Bill bill : bills) {
+            bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
         }
         
         return bills;
@@ -172,7 +178,7 @@ public class BillDAOImpl implements BillDAO {
     public Optional<Bill> findBillByNumber(String billNumber) throws SQLException {
         String sql = "SELECT * FROM bills WHERE bill_number = ?";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, billNumber);
@@ -193,7 +199,7 @@ public class BillDAOImpl implements BillDAO {
         String sql = "SELECT * FROM bills WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC";
         List<Bill> bills = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setTimestamp(1, Timestamp.valueOf(startDate));
@@ -202,10 +208,14 @@ public class BillDAOImpl implements BillDAO {
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     Bill bill = mapResultSetToBill(rs);
-                    bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
                     bills.add(bill);
                 }
             }
+        }
+        
+        // Fetch order items after closing the bills ResultSet
+        for (Bill bill : bills) {
+            bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
         }
         
         return bills;
@@ -215,7 +225,7 @@ public class BillDAOImpl implements BillDAO {
     public BigDecimal getTotalSales() throws SQLException {
         String sql = "SELECT COALESCE(SUM(total_amount), 0) as total FROM bills";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -231,7 +241,7 @@ public class BillDAOImpl implements BillDAO {
     public BigDecimal getLastSale() throws SQLException {
         String sql = "SELECT total_amount FROM bills ORDER BY created_at DESC LIMIT 1";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -247,7 +257,7 @@ public class BillDAOImpl implements BillDAO {
     public Integer getTotalOrders() throws SQLException {
         String sql = "SELECT COUNT(*) as count FROM bills";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -263,7 +273,7 @@ public class BillDAOImpl implements BillDAO {
         String sql = "SELECT COALESCE(SUM(total_amount), 0) as total FROM bills " +
                     "WHERE DATE(created_at) = CURDATE()";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -278,7 +288,7 @@ public class BillDAOImpl implements BillDAO {
     public int getTotalOrdersToday() throws SQLException {
         String sql = "SELECT COUNT(*) as count FROM bills WHERE DATE(created_at) = CURDATE()";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -299,7 +309,7 @@ public class BillDAOImpl implements BillDAO {
         String sql = "SELECT COUNT(*) + 1 as next_num FROM bills " +
                     "WHERE DATE(created_at) = CURDATE()";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -316,10 +326,12 @@ public class BillDAOImpl implements BillDAO {
      * Get order items for a specific bill
      */
     private List<OrderItem> getOrderItemsByBillId(Integer billId) throws SQLException {
-        String sql = "SELECT * FROM order_items WHERE bill_id = ?";
+        String sql = "SELECT oi.*, p.product_name FROM order_items oi " +
+                    "JOIN products p ON oi.product_id = p.product_id " +
+                    "WHERE oi.bill_id = ?";
         List<OrderItem> orderItems = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setInt(1, billId);
@@ -353,7 +365,6 @@ public class BillDAOImpl implements BillDAO {
         bill.setTaxAmount(rs.getBigDecimal("tax_amount"));
         bill.setTotalAmount(rs.getBigDecimal("total_amount"));
         bill.setPaymentMethod(PaymentMethod.valueOf(rs.getString("payment_method")));
-        bill.setBilledByUser(rs.getString("customer_name"));
         
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {
@@ -361,5 +372,66 @@ public class BillDAOImpl implements BillDAO {
         }
         
         return bill;
+    }
+    
+    /**
+     * Get today's bills as a list
+     */
+    public List<Bill> getTodaysBills() throws SQLException {
+        String sql = "SELECT * FROM bills WHERE DATE(created_at) = CURDATE() ORDER BY created_at DESC";
+        List<Bill> bills = new ArrayList<>();
+        
+        try (Connection conn = dbConfig.createNewConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                Bill bill = mapResultSetToBill(rs);
+                bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
+                bills.add(bill);
+            }
+        }
+        
+        return bills;
+    }
+    
+    /**
+     * Get bills by payment status
+     */
+    public List<Bill> getBillsByPaymentStatus(String status) throws SQLException {
+        String sql = "SELECT * FROM bills WHERE payment_status = ? ORDER BY created_at DESC";
+        List<Bill> bills = new ArrayList<>();
+        
+        try (Connection conn = dbConfig.createNewConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, status);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Bill bill = mapResultSetToBill(rs);
+                    bill.setOrderItems(getOrderItemsByBillId(bill.getBillId()));
+                    bills.add(bill);
+                }
+            }
+        }
+        
+        return bills;
+    }
+    
+    /**
+     * Update bill status
+     */
+    public boolean updateBillStatus(int billId, String status) throws SQLException {
+        String sql = "UPDATE bills SET payment_status = ? WHERE bill_id = ?";
+        
+        try (Connection conn = dbConfig.createNewConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, status);
+            pstmt.setInt(2, billId);
+            
+            return pstmt.executeUpdate() > 0;
+        }
     }
 }

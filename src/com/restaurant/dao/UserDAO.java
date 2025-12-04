@@ -112,4 +112,29 @@ public interface UserDAO {
      * @throws SQLException if database operation fails
      */
     boolean phoneNumberExists(String phoneNumber) throws SQLException;
+    
+    /**
+     * Generate a unique 4-digit employee ID
+     * 
+     * @return unique 4-digit employee ID string
+     * @throws SQLException if database operation fails
+     */
+    String generateEmployeeId() throws SQLException;
+    
+    /**
+     * Find user by employee ID
+     * 
+     * @param employeeId employee ID
+     * @return Optional containing user if found
+     * @throws SQLException if database operation fails
+     */
+    Optional<User> findUserByEmployeeId(String employeeId) throws SQLException;
+    
+    /**
+     * Get all employees (SERVER and CHEF roles)
+     * 
+     * @return list of employees
+     * @throws SQLException if database operation fails
+     */
+    List<User> getAllEmployees() throws SQLException;
 }

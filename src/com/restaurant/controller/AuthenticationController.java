@@ -34,17 +34,6 @@ public class AuthenticationController {
      */
     public User authenticateUser(String username, String password) {
         try {
-            // Handle hardcoded admin login
-            if ("admin".equals(username) && "admin".equals(password)) {
-                User adminUser = new User();
-                adminUser.setUserId(0);
-                adminUser.setUsername("admin");
-                adminUser.setFullName("Administrator");
-                adminUser.setRole(UserRole.ADMIN);
-                currentUser = adminUser;
-                return adminUser;
-            }
-            
             // Check database for user
             Optional<User> userOpt = userDAO.authenticateUser(username, password);
             if (userOpt.isPresent()) {
@@ -72,22 +61,13 @@ public class AuthenticationController {
      */
     public User authenticateUser(String username, String password, String role) {
         try {
-            // Handle hardcoded admin login
-            if ("admin".equals(username) && "admin".equals(password) && "ADMIN".equals(role)) {
-                User adminUser = new User();
-                adminUser.setUserId(0);
-                adminUser.setUsername("admin");
-                adminUser.setFullName("Administrator");
-                adminUser.setRole(UserRole.ADMIN);
-                currentUser = adminUser;
-                return adminUser;
-            }
-            
-            // Validate for employee login
-            if ("EMPLOYEE".equals(role)) {
-                Optional<User> userOpt = userDAO.authenticateUser(username, password);
-                if (userOpt.isPresent()) {
-                    currentUser = userOpt.get();
+            // Validate for any role login
+            Optional<User> userOpt = userDAO.authenticateUser(username, password);
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                // Verify role matches
+                if (user.getRole().name().equals(role)) {
+                    currentUser = user;
                     return currentUser;
                 }
             }

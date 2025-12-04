@@ -38,7 +38,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "stock_quantity, reorder_level, max_stock_level, unit, is_available) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
             pstmt.setString(1, product.getProductName());
@@ -76,7 +76,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "JOIN product_categories pc ON p.category_id = pc.category_id " +
                     "WHERE p.product_id = ?";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setInt(1, productId);
@@ -101,7 +101,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "ORDER BY p.product_name";
         List<Product> products = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -123,7 +123,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "WHERE p.is_available = true ORDER BY pc.category_name, p.product_name";
         List<Product> products = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -145,7 +145,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "WHERE pc.category_name = ? ORDER BY p.product_name";
         List<Product> products = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, category);
@@ -172,7 +172,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "description = ?, stock_quantity = ?, reorder_level = ?, " +
                     "max_stock_level = ?, unit = ?, is_available = ? WHERE product_id = ?";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, product.getProductName());
@@ -201,7 +201,7 @@ public class ProductDAOImpl implements ProductDAO {
     public boolean deleteProduct(Integer productId) throws SQLException {
         String sql = "DELETE FROM products WHERE product_id = ?";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setInt(1, productId);
@@ -216,7 +216,7 @@ public class ProductDAOImpl implements ProductDAO {
         String sql = "SELECT category_name FROM product_categories ORDER BY category_name";
         List<String> categories = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             
@@ -237,7 +237,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "JOIN product_categories pc ON p.category_id = pc.category_id " +
                     "WHERE LOWER(p.product_name) = LOWER(?)";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, productName);
@@ -255,7 +255,7 @@ public class ProductDAOImpl implements ProductDAO {
     public boolean productNameExists(String productName) throws SQLException {
         String sql = "SELECT COUNT(*) FROM products WHERE LOWER(product_name) = LOWER(?)";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, productName);
@@ -280,7 +280,7 @@ public class ProductDAOImpl implements ProductDAO {
                     "OR LOWER(p.description) LIKE LOWER(?) ORDER BY p.product_name";
         List<Product> products = new ArrayList<>();
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             String searchPattern = "%" + searchTerm + "%";
@@ -303,7 +303,7 @@ public class ProductDAOImpl implements ProductDAO {
     private Integer getCategoryIdByName(String categoryName) throws SQLException {
         String sql = "SELECT category_id FROM product_categories WHERE category_name = ?";
         
-        try (Connection conn = dbConfig.getConnection();
+        try (Connection conn = dbConfig.createNewConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setString(1, categoryName);

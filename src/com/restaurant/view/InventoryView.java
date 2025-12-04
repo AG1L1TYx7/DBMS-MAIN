@@ -37,6 +37,7 @@ public class InventoryView extends JPanel {
     private JLabel outOfStockLabel;
     private JLabel inStockLabel;
     private JComboBox<String> filterCombo;
+    private Timer autoRefreshTimer;
     
     /**
      * Constructor
@@ -46,6 +47,18 @@ public class InventoryView extends JPanel {
         initializeUI();
         loadInventoryData();
         updateStatistics();
+        startAutoRefresh();
+    }
+    
+    /**
+     * Start auto-refresh timer (every 30 seconds)
+     */
+    private void startAutoRefresh() {
+        autoRefreshTimer = new Timer(30000, e -> {
+            loadInventoryData();
+            updateStatistics();
+        });
+        autoRefreshTimer.start();
     }
     
     /**

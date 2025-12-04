@@ -1,11 +1,19 @@
 package com.restaurant.view;
 
 import com.restaurant.controller.AuthenticationController;
+import com.restaurant.dao.TimeClockDAO;
+import com.restaurant.dao.TimeClockDAOImpl;
+import com.restaurant.dao.UserDAO;
+import com.restaurant.dao.UserDAOImpl;
+import com.restaurant.model.TimeClock;
 import com.restaurant.model.User;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.sql.SQLException;
+import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 /**
  * Modern Login View with professional UI design
@@ -242,13 +250,61 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(10, 40, 20, 40);
         panel.add(signupPanel, gbc);
         
+        // Reservation Link for guests
+        gbc.gridy++;
+        JPanel reservationPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        reservationPanel.setBackground(WHITE);
+        
+        JLabel reserveLabel = new JLabel("Want to reserve a table?");
+        reserveLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        reserveLabel.setForeground(Color.GRAY);
+        
+        JButton reservationButton = new JButton("Make Reservation");
+        reservationButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        reservationButton.setForeground(ACCENT_COLOR);
+        reservationButton.setBorderPainted(false);
+        reservationButton.setContentAreaFilled(false);
+        reservationButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        reservationButton.setFocusPainted(false);
+        reservationButton.addActionListener(e -> {
+            new CustomerReservationView().setVisible(true);
+        });
+        
+        reservationPanel.add(reserveLabel);
+        reservationPanel.add(reservationButton);
+        gbc.insets = new Insets(5, 40, 10, 40);
+        panel.add(reservationPanel, gbc);
+        
+        // Employee Clock In/Out Panel
+        gbc.gridy++;
+        JPanel clockPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
+        clockPanel.setBackground(WHITE);
+        
+        JLabel clockLabel = new JLabel("Employee?");
+        clockLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        clockLabel.setForeground(Color.GRAY);
+        
+        JButton clockButton = new JButton("⏱️ Clock In/Out");
+        clockButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        clockButton.setForeground(new Color(155, 89, 182));  // Purple color
+        clockButton.setBorderPainted(false);
+        clockButton.setContentAreaFilled(false);
+        clockButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        clockButton.setFocusPainted(false);
+        clockButton.addActionListener(e -> showClockInOutDialog());
+        
+        clockPanel.add(clockLabel);
+        clockPanel.add(clockButton);
+        gbc.insets = new Insets(5, 40, 10, 40);
+        panel.add(clockPanel, gbc);
+        
         // Version Label
         gbc.gridy++;
         JLabel versionLabel = new JLabel("Version 2.0 MVC");
         versionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         versionLabel.setForeground(Color.LIGHT_GRAY);
         versionLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.insets = new Insets(20, 40, 20, 40);
+        gbc.insets = new Insets(10, 40, 20, 40);
         panel.add(versionLabel, gbc);
         
         return panel;
@@ -331,11 +387,17 @@ public class LoginView extends JFrame {
                         dispose();
                         switch (user.getRole()) {
                             case ADMIN:
-                            case MANAGER:
                                 new AdminView().setVisible(true);
                                 break;
-                            case EMPLOYEE:
-                                new OrderView().setVisible(true);
+                            case SERVER:
+                                new ServerView(user).setVisible(true);
+                                break;
+                            case CHEF:
+                                new KitchenView(user).setVisible(true);
+                                break;
+                            case CUSTOMER:
+                                // Customer view - show reservation view
+                                new CustomerReservationView().setVisible(true);
                                 break;
                         }
                     } else {
@@ -344,6 +406,7 @@ public class LoginView extends JFrame {
                         passwordField.requestFocus();
                     }
                 } catch (Exception ex) {
+                    ex.printStackTrace();
                     showError("Login failed: " + ex.getMessage());
                 } finally {
                     loginButton.setEnabled(true);
@@ -361,6 +424,225 @@ public class LoginView extends JFrame {
         Timer timer = new Timer(3000, e -> errorLabel.setText(""));
         timer.setRepeats(false);
         timer.start();
+    }
+    
+    /**
+     * Show Clock In/Out dialog for employees
+     */
+    private void showClockInOutDialog() {
+        JDialog dialog = new JDialog(this, "Employee Clock In/Out", true);
+        dialog.setSize(400, 350);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.getContentPane().setBackground(Color.WHITE);
+        
+        // Title Panel
+        JPanel titlePanel = new JPanel();
+        titlePanel.setBackground(new Color(155, 89, 182));
+        titlePanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        JLabel titleLabel = new JLabel("⏱️ Employee Time Clock");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setForeground(Color.WHITE);
+        titlePanel.add(titleLabel);
+        dialog.add(titlePanel, BorderLayout.NORTH);
+        
+        // Form Panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBackground(Color.WHITE);
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Employee ID Label
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        JLabel idLabel = new JLabel("Employee ID:");
+        idLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        formPanel.add(idLabel, gbc);
+        
+        // Employee ID Field
+        gbc.gridx = 1;
+        JTextField employeeIdField = new JTextField(10);
+        employeeIdField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        formPanel.add(employeeIdField, gbc);
+        
+        // Status Label
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.gridwidth = 2;
+        JLabel statusLabel = new JLabel(" ");
+        statusLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+        statusLabel.setForeground(Color.GRAY);
+        formPanel.add(statusLabel, gbc);
+        
+        // Buttons Panel
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        buttonPanel.setBackground(Color.WHITE);
+        
+        JButton clockInBtn = new JButton("🟢 Clock In");
+        clockInBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        clockInBtn.setBackground(new Color(46, 204, 113));
+        clockInBtn.setForeground(Color.WHITE);
+        clockInBtn.setFocusPainted(false);
+        clockInBtn.setPreferredSize(new Dimension(130, 40));
+        
+        JButton clockOutBtn = new JButton("🔴 Clock Out");
+        clockOutBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        clockOutBtn.setBackground(new Color(231, 76, 60));
+        clockOutBtn.setForeground(Color.WHITE);
+        clockOutBtn.setFocusPainted(false);
+        clockOutBtn.setPreferredSize(new Dimension(130, 40));
+        
+        buttonPanel.add(clockInBtn);
+        buttonPanel.add(clockOutBtn);
+        formPanel.add(buttonPanel, gbc);
+        
+        dialog.add(formPanel, BorderLayout.CENTER);
+        
+        // Check status when employee ID changes
+        employeeIdField.addActionListener(e -> {
+            String empId = employeeIdField.getText().trim();
+            if (!empId.isEmpty()) {
+                checkEmployeeStatus(empId, statusLabel);
+            }
+        });
+        
+        // Clock In Action
+        clockInBtn.addActionListener(e -> {
+            String empId = employeeIdField.getText().trim();
+            if (empId.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Please enter your Employee ID", 
+                    "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            try {
+                UserDAO userDAO = new UserDAOImpl();
+                TimeClockDAO timeClockDAO = new TimeClockDAOImpl();
+                
+                Optional<User> userOpt = userDAO.findUserByEmployeeId(empId);
+                if (userOpt.isEmpty()) {
+                    JOptionPane.showMessageDialog(dialog, "Employee ID not found", 
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                User user = userOpt.get();
+                
+                // Check if already clocked in
+                if (timeClockDAO.isClockedIn(user.getUserId())) {
+                    JOptionPane.showMessageDialog(dialog, "You are already clocked in!", 
+                        "Already Clocked In", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                // Clock in
+                TimeClock record = timeClockDAO.clockIn(user.getUserId(), empId);
+                if (record != null) {
+                    JOptionPane.showMessageDialog(dialog, 
+                        "Clock In Successful!\n\n" +
+                        "Employee: " + user.getFullName() + "\n" +
+                        "ID: " + empId + "\n" +
+                        "Time: " + record.getClockInTime().format(DateTimeFormatter.ofPattern("hh:mm a")),
+                        "Clocked In", JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(dialog, "Error: " + ex.getMessage(), 
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        
+        // Clock Out Action
+        clockOutBtn.addActionListener(e -> {
+            String empId = employeeIdField.getText().trim();
+            if (empId.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "Please enter your Employee ID", 
+                    "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
+            try {
+                UserDAO userDAO = new UserDAOImpl();
+                TimeClockDAO timeClockDAO = new TimeClockDAOImpl();
+                
+                Optional<User> userOpt = userDAO.findUserByEmployeeId(empId);
+                if (userOpt.isEmpty()) {
+                    JOptionPane.showMessageDialog(dialog, "Employee ID not found", 
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                User user = userOpt.get();
+                
+                // Check if clocked in
+                Optional<TimeClock> activeRecord = timeClockDAO.getActiveClockIn(user.getUserId());
+                if (activeRecord.isEmpty()) {
+                    JOptionPane.showMessageDialog(dialog, "You are not clocked in!", 
+                        "Not Clocked In", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                // Clock out
+                TimeClock record = activeRecord.get();
+                if (timeClockDAO.clockOut(record.getClockId())) {
+                    record = timeClockDAO.findById(record.getClockId()).orElse(record);
+                    JOptionPane.showMessageDialog(dialog, 
+                        "Clock Out Successful!\n\n" +
+                        "Employee: " + user.getFullName() + "\n" +
+                        "ID: " + empId + "\n" +
+                        "Duration: " + record.getFormattedDuration(),
+                        "Clocked Out", JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(dialog, "Error: " + ex.getMessage(), 
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+        
+        dialog.setVisible(true);
+    }
+    
+    /**
+     * Check and display employee clock status
+     */
+    private void checkEmployeeStatus(String employeeId, JLabel statusLabel) {
+        try {
+            UserDAO userDAO = new UserDAOImpl();
+            TimeClockDAO timeClockDAO = new TimeClockDAOImpl();
+            
+            Optional<User> userOpt = userDAO.findUserByEmployeeId(employeeId);
+            if (userOpt.isEmpty()) {
+                statusLabel.setText("Employee not found");
+                statusLabel.setForeground(Color.RED);
+                return;
+            }
+            
+            User user = userOpt.get();
+            boolean isClockedIn = timeClockDAO.isClockedIn(user.getUserId());
+            
+            if (isClockedIn) {
+                Optional<TimeClock> active = timeClockDAO.getActiveClockIn(user.getUserId());
+                if (active.isPresent()) {
+                    statusLabel.setText("✓ " + user.getFullName() + " - Currently clocked in (" + 
+                        active.get().getFormattedDuration() + ")");
+                    statusLabel.setForeground(new Color(46, 204, 113));
+                }
+            } else {
+                statusLabel.setText("○ " + user.getFullName() + " - Not clocked in");
+                statusLabel.setForeground(Color.GRAY);
+            }
+        } catch (SQLException ex) {
+            statusLabel.setText("Error checking status");
+            statusLabel.setForeground(Color.RED);
+        }
     }
     
     /**

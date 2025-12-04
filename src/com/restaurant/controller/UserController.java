@@ -4,6 +4,7 @@ import com.restaurant.dao.UserDAO;
 import com.restaurant.dao.UserDAOImpl;
 import com.restaurant.model.User;
 import com.restaurant.model.User.UserRole;
+import org.mindrot.jbcrypt.BCrypt;
 
 import javax.swing.*;
 import java.sql.SQLException;
@@ -93,7 +94,9 @@ public class UserController {
             user.setEmailAddress(email.trim().toLowerCase());
             user.setUsername(username.trim().toLowerCase());
             user.setPhoneNumber(phoneNumber.trim());
-            user.setPasswordHash(password); // In production, hash the password
+            // Hash password with BCrypt
+            String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt(12));
+            user.setPasswordHash(hashedPassword);
             user.setAddress(address != null ? address.trim() : "");
             user.setRole(UserRole.valueOf(role));
             user.setActive(true);
@@ -227,7 +230,9 @@ public class UserController {
             }
             
             User user = optionalUser.get();
-            user.setPasswordHash(newPassword); // In production, hash the password
+            // Hash password with BCrypt
+            String hashedPassword = BCrypt.hashpw(newPassword, BCrypt.gensalt(12));
+            user.setPasswordHash(hashedPassword);
             return userDAO.updateUser(user);
             
         } catch (SQLException e) {
