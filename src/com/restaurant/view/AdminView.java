@@ -1193,16 +1193,17 @@ public class AdminView extends JFrame {
         String payment = (String) ordersTable.getValueAt(selectedRow, 6);
         String cashier = (String) ordersTable.getValueAt(selectedRow, 7);
         
-        String details = String.format(
-            "Bill Number: %s\n" +
-            "Date & Time: %s\n" +
-            "Total Items: %d\n" +
-            "Subtotal: %s\n" +
-            "Tax: %s\n" +
-            "Total: %s\n" +
-            "Payment Method: %s\n" +
-            "Cashier: %s",
-            billNumber, dateTime, items, subtotal, tax, total, payment, cashier
+        String details = (
+                """
+                Bill Number: %s
+                Date & Time: %s
+                Total Items: %d
+                Subtotal: %s
+                Tax: %s
+                Total: %s
+                Payment Method: %s
+                Cashier: %s""").formatted(
+                billNumber, dateTime, items, subtotal, tax, total, payment, cashier
         );
         
         JOptionPane.showMessageDialog(this,
@@ -1213,8 +1214,9 @@ public class AdminView extends JFrame {
     
     private void exportOrders() {
         JOptionPane.showMessageDialog(this,
-            "Export functionality coming soon!\n" +
-            "This will allow exporting orders to CSV/PDF format.",
+            """
+            Export functionality coming soon!
+            This will allow exporting orders to CSV/PDF format.""",
             "Export Orders",
             JOptionPane.INFORMATION_MESSAGE);
     }

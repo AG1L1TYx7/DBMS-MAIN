@@ -23,9 +23,8 @@ public class DatabaseConfiguration {
     private static final String DB_PASSWORD = "A9851040557@123a";
     
     // JDBC URL construction
-    private static final String DB_URL = String.format(
-        "jdbc:mysql://%s:%s/%s?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true",
-        DB_HOST, DB_PORT, DB_NAME
+    private static final String DB_URL = "jdbc:mysql://%s:%s/%s?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true".formatted(
+            DB_HOST, DB_PORT, DB_NAME
     );
     
     // Connection pool settings

@@ -97,7 +97,7 @@ public class InventoryController {
                                String adjustmentType, String reason) {
         try {
             Optional<Product> productOpt = productDAO.findProductById(productId);
-            if (!productOpt.isPresent()) {
+            if (productOpt.isEmpty()) {
                 return false;
             }
             Product product = productOpt.get();
@@ -142,7 +142,7 @@ public class InventoryController {
     public boolean updateReorderLevel(Integer productId, Integer reorderLevel) {
         try {
             Optional<Product> productOpt = productDAO.findProductById(productId);
-            if (!productOpt.isPresent()) {
+            if (productOpt.isEmpty()) {
                 return false;
             }
             Product product = productOpt.get();
@@ -162,7 +162,7 @@ public class InventoryController {
     public boolean updateMaxStockLevel(Integer productId, Integer maxStockLevel) {
         try {
             Optional<Product> productOpt = productDAO.findProductById(productId);
-            if (!productOpt.isPresent()) {
+            if (productOpt.isEmpty()) {
                 return false;
             }
             Product product = productOpt.get();
@@ -182,7 +182,7 @@ public class InventoryController {
     public boolean updateUnit(Integer productId, String unit) {
         try {
             Optional<Product> productOpt = productDAO.findProductById(productId);
-            if (!productOpt.isPresent()) {
+            if (productOpt.isEmpty()) {
                 return false;
             }
             Product product = productOpt.get();
@@ -262,7 +262,7 @@ public class InventoryController {
                                        Integer reorderLevel, Integer maxStock, String unit) {
         try {
             Optional<Product> productOpt = productDAO.findProductById(productId);
-            if (!productOpt.isPresent()) {
+            if (productOpt.isEmpty()) {
                 return false;
             }
             Product product = productOpt.get();

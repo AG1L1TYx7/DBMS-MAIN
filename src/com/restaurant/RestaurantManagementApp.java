@@ -85,16 +85,19 @@ public class RestaurantManagementApp {
      * Show database error dialog
      */
     private static void showDatabaseError() {
-        String errorMessage = "Failed to connect to the database!\n\n" +
-                             "Please ensure:\n" +
-                             "1. MySQL server is running\n" +
-                             "2. Database 'restaurant_db' exists\n" +
-                             "3. MySQL Connector/J driver is in classpath\n" +
-                             "4. Database credentials in DatabaseConfiguration are correct\n\n" +
-                             "To set up the database:\n" +
-                             "1. Open MySQL Workbench\n" +
-                             "2. Run the 'restaurant_db_schema.sql' script\n" +
-                             "3. Restart the application";
+        String errorMessage = """
+                             Failed to connect to the database!
+                             
+                             Please ensure:
+                             1. MySQL server is running
+                             2. Database 'restaurant_db' exists
+                             3. MySQL Connector/J driver is in classpath
+                             4. Database credentials in DatabaseConfiguration are correct
+                             
+                             To set up the database:
+                             1. Open MySQL Workbench
+                             2. Run the 'restaurant_db_schema.sql' script
+                             3. Restart the application""";
         
         JOptionPane.showMessageDialog(null,
             errorMessage,
@@ -108,8 +111,9 @@ public class RestaurantManagementApp {
      * @return application info string
      */
     public static String getApplicationInfo() {
-        return "Restaurant Management System v2.0\n" +
-               "MVC Architecture Implementation\n" +
-               "© 2025 Restaurant Management System";
+        return """
+               Restaurant Management System v2.0
+               MVC Architecture Implementation
+               © 2025 Restaurant Management System""";
     }
 }

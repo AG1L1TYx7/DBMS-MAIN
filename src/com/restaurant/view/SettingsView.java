@@ -383,10 +383,9 @@ public class SettingsView extends JFrame {
                 @Override
                 protected Void doInBackground() {
                     try {
-                        String command = String.format(
-                            "mysqldump -u root %s > %s",
-                            DatabaseConfiguration.getDatabaseName(),
-                            file.getAbsolutePath()
+                        String command = "mysqldump -u root %s > %s".formatted(
+                                DatabaseConfiguration.getDatabaseName(),
+                                file.getAbsolutePath()
                         );
                         
                         Process process = Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", command});
@@ -430,10 +429,9 @@ public class SettingsView extends JFrame {
                     @Override
                     protected Void doInBackground() {
                         try {
-                            String command = String.format(
-                                "mysql -u root %s < %s",
-                                DatabaseConfiguration.getDatabaseName(),
-                                file.getAbsolutePath()
+                            String command = "mysql -u root %s < %s".formatted(
+                                    DatabaseConfiguration.getDatabaseName(),
+                                    file.getAbsolutePath()
                             );
                             
                             Process process = Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", command});

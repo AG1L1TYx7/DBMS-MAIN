@@ -114,28 +114,28 @@ public class ReceiptPrinter implements Printable {
         sb.append(line(40)).append("\n");
         
         // Items Header
-        sb.append(String.format("%-20s %4s %7s %7s\n", "Item", "Qty", "Price", "Total"));
+        sb.append("%-20s %4s %7s %7s\n".formatted("Item", "Qty", "Price", "Total"));
         sb.append(line(40)).append("\n");
         
         // Items
         if (bill.getOrderItems() != null) {
             for (OrderItem item : bill.getOrderItems()) {
                 String itemName = truncate(item.getProductName(), 20);
-                sb.append(String.format("%-20s %4d %7.2f %7.2f\n",
-                    itemName,
-                    item.getQuantity(),
-                    item.getUnitPrice().doubleValue(),
-                    item.getSubtotal().doubleValue()));
+                sb.append("%-20s %4d %7.2f %7.2f\n".formatted(
+                        itemName,
+                        item.getQuantity(),
+                        item.getUnitPrice().doubleValue(),
+                        item.getSubtotal().doubleValue()));
             }
         }
         
         sb.append(line(40)).append("\n");
         
         // Totals
-        sb.append(String.format("%-28s %10.2f\n", "Subtotal:", bill.getNetAmount().doubleValue()));
-        sb.append(String.format("%-28s %10.2f\n", "Tax (13%):", bill.getTaxAmount().doubleValue()));
+        sb.append("%-28s %10.2f\n".formatted("Subtotal:", bill.getNetAmount().doubleValue()));
+        sb.append("%-28s %10.2f\n".formatted("Tax (13%):", bill.getTaxAmount().doubleValue()));
         sb.append(line(40)).append("\n");
-        sb.append(String.format("%-28s %10.2f\n", "TOTAL:", bill.getTotalAmount().doubleValue()));
+        sb.append("%-28s %10.2f\n".formatted("TOTAL:", bill.getTotalAmount().doubleValue()));
         
         // Payment Details
         if (bill.getPaymentMethod() != null) {
@@ -143,10 +143,10 @@ public class ReceiptPrinter implements Printable {
             sb.append("Payment Method: ").append(bill.getPaymentMethod().name()).append("\n");
             
             if (bill.getCashReceived() != null) {
-                sb.append(String.format("%-28s %10.2f\n", "Cash Received:", 
-                    bill.getCashReceived().doubleValue()));
-                sb.append(String.format("%-28s %10.2f\n", "Change:", 
-                    bill.getChangeAmount().doubleValue()));
+                sb.append("%-28s %10.2f\n".formatted("Cash Received:",
+                        bill.getCashReceived().doubleValue()));
+                sb.append("%-28s %10.2f\n".formatted("Change:",
+                        bill.getChangeAmount().doubleValue()));
             }
         }
         

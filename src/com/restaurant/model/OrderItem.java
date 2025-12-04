@@ -11,7 +11,8 @@ import java.math.BigDecimal;
  * @version 2.0
  */
 public class OrderItem implements Serializable {
-    
+
+    @Serial
     private static final long serialVersionUID = 1L;
     
     private Integer orderItemId;

@@ -293,8 +293,8 @@ public class BillDAOImpl implements BillDAO {
     public String generateBillNumber() throws SQLException {
         // Generate bill number format: BILL-YYYYMMDD-XXXX
         LocalDateTime now = LocalDateTime.now();
-        String dateStr = String.format("%04d%02d%02d", 
-            now.getYear(), now.getMonthValue(), now.getDayOfMonth());
+        String dateStr = "%04d%02d%02d".formatted(
+                now.getYear(), now.getMonthValue(), now.getDayOfMonth());
         
         String sql = "SELECT COUNT(*) + 1 as next_num FROM bills " +
                     "WHERE DATE(created_at) = CURDATE()";
@@ -305,11 +305,11 @@ public class BillDAOImpl implements BillDAO {
             
             if (rs.next()) {
                 int nextNum = rs.getInt("next_num");
-                return String.format("BILL-%s-%04d", dateStr, nextNum);
+                return "BILL-%s-%04d".formatted(dateStr, nextNum);
             }
         }
         
-        return String.format("BILL-%s-0001", dateStr);
+        return "BILL-%s-0001".formatted(dateStr);
     }
     
     /**

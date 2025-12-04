@@ -596,20 +596,20 @@ public class OrderView extends JFrame {
         receipt.append("--------------------------------\n\n");
         
         for (OrderItem item : bill.getOrderItems()) {
-            receipt.append(String.format("%-20s x%d\n", item.getProductName(), item.getQuantity()));
-            receipt.append(String.format("  $%-8s    $%s\n", item.getUnitPrice(), item.getSubtotal()));
+            receipt.append("%-20s x%d\n".formatted(item.getProductName(), item.getQuantity()));
+            receipt.append("  $%-8s    $%s\n".formatted(item.getUnitPrice(), item.getSubtotal()));
         }
         
         receipt.append("\n--------------------------------\n");
-        receipt.append(String.format("Subtotal:        $%s\n", bill.getNetAmount()));
-        receipt.append(String.format("Tax (10%%):       $%s\n", bill.getTaxAmount()));
-        receipt.append(String.format("TOTAL:           $%s\n", bill.getTotalAmount()));
+        receipt.append("Subtotal:        $%s\n".formatted(bill.getNetAmount()));
+        receipt.append("Tax (10%%):       $%s\n".formatted(bill.getTaxAmount()));
+        receipt.append("TOTAL:           $%s\n".formatted(bill.getTotalAmount()));
         receipt.append("\n");
         receipt.append("Payment: ").append(bill.getPaymentMethod().getDisplayName()).append("\n");
         
         if (bill.getCashReceived() != null) {
-            receipt.append(String.format("Cash:            $%s\n", bill.getCashReceived()));
-            receipt.append(String.format("Change:          $%s\n", bill.getChangeAmount()));
+            receipt.append("Cash:            $%s\n".formatted(bill.getCashReceived()));
+            receipt.append("Change:          $%s\n".formatted(bill.getChangeAmount()));
         }
         
         receipt.append("\n================================\n");

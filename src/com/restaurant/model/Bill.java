@@ -15,7 +15,8 @@ import java.util.List;
  * @version 2.0
  */
 public class Bill implements Serializable {
-    
+
+    @Serial
     private static final long serialVersionUID = 1L;
     
     private Integer billId;

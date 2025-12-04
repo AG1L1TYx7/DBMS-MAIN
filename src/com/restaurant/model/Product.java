@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
  * @version 2.0
  */
 public class Product implements Serializable {
-    
+
+    @Serial
     private static final long serialVersionUID = 1L;
     
     private Integer productId;
