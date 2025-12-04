@@ -1,0 +1,38 @@
+# Gradle
+.gradle/
+build/
+out/
+bin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# NetBeans
+nbproject/
+build.xml
+manifest.mf
+nbbuild/
+dist/
+nbdist/
+
+# macOS
+.DS_Store
+
+# Database
+*.db
+
+# Logs
+*.log
+
+# Compiled
+*.class

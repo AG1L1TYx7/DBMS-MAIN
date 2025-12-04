@@ -1,0 +1,161 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'jacoco'
+    id 'info.solidsoft.pitest' version '1.15.0'
+}
+
+group = 'com.restaurant'
+version = '2.0.0'
+sourceCompatibility = '17'
+targetCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // MySQL Connector
+    implementation 'com.mysql:mysql-connector-j:8.2.0'
+    
+    // BCrypt for password hashing
+    implementation 'org.mindrot:jbcrypt:0.4'
+    
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.mockito:mockito-core:5.8.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
+    testImplementation 'com.h2database:h2:2.2.224'
+    testImplementation 'org.assertj:assertj-core:3.24.2'
+}
+
+application {
+    mainClass = 'com.restaurant.RestaurantManagementApp'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['test']
+        }
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Create executable JAR with dependencies
+tasks.register('fatJar', Jar) {
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    manifest {
+        attributes 'Main-Class': 'com.restaurant.RestaurantManagementApp'
+    }
+    
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    with jar
+}
+
+// Run task configuration
+tasks.named('run') {
+    standardInput = System.in
+    jvmArgs = ['-Xms256m', '-Xmx512m']
+}
+
+// Clean task enhancement
+tasks.named('clean') {
+    delete 'build', 'out', '.gradle'
+}
+
+// JavaDoc configuration
+tasks.named('javadoc') {
+    options.encoding = 'UTF-8'
+    options.author = true
+    options.version = true
+}
+
+// JaCoCo configuration for code coverage
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                '**/view/**',
+                '**/RestaurantManagementApp.class'
+            ])
+        }))
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = 0.90
+            }
+        }
+        
+        rule {
+            element = 'CLASS'
+            excludes = ['*.view.*', '*.RestaurantManagementApp']
+            
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.85
+            }
+            
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.80
+            }
+        }
+    }
+}
+
+// PIT Mutation Testing configuration
+pitest {
+    targetClasses = ['com.restaurant.model.*', 'com.restaurant.controller.*', 'com.restaurant.util.*']
+    excludedClasses = ['com.restaurant.view.*', 'com.restaurant.RestaurantManagementApp']
+    targetTests = ['com.restaurant.*']
+    threads = 4
+    outputFormats = ['HTML', 'XML']
+    timestampedReports = false
+    mutationThreshold = 90
+    coverageThreshold = 90
+    junit5PluginVersion = '1.2.1'
+    verbose = true
+}
+
+// Add coverage check to test task
+test {
+    finalizedBy jacocoTestReport
+}
+
+// Build should verify coverage
+check {
+    dependsOn jacocoTestCoverageVerification
+}
