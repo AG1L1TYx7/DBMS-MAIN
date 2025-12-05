@@ -56,6 +56,8 @@ sourceSets {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Suppress JVM sharing warning on Windows
+    jvmArgs '-Xshare:off'
 }
 
 // Create executable JAR with dependencies
