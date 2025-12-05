@@ -18,6 +18,9 @@ dependencies {
     // MySQL Connector
     implementation 'com.mysql:mysql-connector-j:8.2.0'
     
+    // HikariCP - High-performance JDBC connection pool
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+    
     // BCrypt for password hashing
     implementation 'org.mindrot:jbcrypt:0.4'
     
