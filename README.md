@@ -4,6 +4,48 @@ A comprehensive Java-based restaurant management application with a modern GUI b
 
 ---
 
+## 🚀 Quick Start (5 Minutes Setup)
+
+### Prerequisites
+- Java 21+ installed
+- MySQL 8.0+ running
+- Git (to clone)
+
+### Step 1: Clone & Navigate
+```bash
+git clone https://github.com/AG1L1TYx7/DBMS-MAIN.git
+cd DBMS-MAIN
+```
+
+### Step 2: Configure Database Connection
+Edit `src/resources/database.properties`:
+```properties
+db.host=localhost
+db.port=3306
+db.name=restaurant_db
+db.username=root
+db.password=          # Leave empty for XAMPP, or enter your MySQL password
+```
+
+### Step 3: Import Database
+```bash
+mysql -u root -p < restaurant_db_complete.sql
+```
+
+### Step 4: Run the Application
+```bash
+./gradlew run
+```
+
+### Step 5: Login
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin123` | Admin Dashboard |
+| `server1` | `server123` | Server View |
+| `chef1` | `chef123` | Kitchen Display |
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
@@ -356,14 +398,50 @@ Map<String, Integer> getInventoryStatistics();
 
 ## Configuration
 
-### Database Configuration
+### Database Configuration (IMPORTANT - Read First!)
 
-Edit `src/com/restaurant/config/DatabaseConfiguration.java`:
+This project uses a **configuration file** for database settings. You **must** configure it before running.
 
-```java
-private static final String URL = "jdbc:mysql://localhost:3306/restaurant_db";
-private static final String USER = "root";
-private static final String PASSWORD = "your_password";
+#### Step 1: Edit the Database Properties File
+
+Open `src/resources/database.properties` and update with YOUR MySQL credentials:
+
+```properties
+# Database Host (usually localhost)
+db.host=localhost
+
+# Database Port (default MySQL port is 3306)
+db.port=3306
+
+# Database Name (don't change unless you renamed the database)
+db.name=restaurant_db
+
+# MySQL Username (default is 'root')
+db.username=root
+
+# MySQL Password
+# - Leave empty if using XAMPP/MAMP with no password: db.password=
+# - Or enter your MySQL root password: db.password=yourpassword
+db.password=
+```
+
+#### Step 2: Common Configurations
+
+| Setup | db.username | db.password |
+|-------|-------------|-------------|
+| **XAMPP (Windows/Mac)** | `root` | (leave empty) |
+| **MAMP (Mac)** | `root` | `root` |
+| **MySQL Fresh Install** | `root` | (whatever you set during install) |
+| **MySQL Workbench** | `root` | (your MySQL root password) |
+
+#### Step 3: Load the Database
+
+```bash
+# Using MySQL command line
+mysql -u root -p < restaurant_db_complete.sql
+
+# Or import via MySQL Workbench:
+# File → Open SQL Script → Select restaurant_db_complete.sql → Execute
 ```
 
 ### Gradle Configuration

@@ -1,5 +1,6 @@
 package com.restaurant.controller;
 
+import com.restaurant.config.DatabaseConfiguration;
 import com.restaurant.model.Customer;
 import com.restaurant.model.Customer.MembershipTier;
 
@@ -21,11 +22,7 @@ import java.util.Map;
 public class CustomerController {
     
     private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(
-            "jdbc:mysql://localhost:3306/restaurant_db", 
-            "root", 
-            ""
-        );
+        return DatabaseConfiguration.getStaticConnection();
     }
     
     /**

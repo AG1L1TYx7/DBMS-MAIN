@@ -1,5 +1,8 @@
 package com.restaurant.config;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -8,24 +11,22 @@ import javax.swing.JOptionPane;
 
 /**
  * Database Configuration Manager
- * Handles MySQL Workbench database connections with connection pooling support
+ * Handles MySQL database connections with configuration from properties file
+ * 
+ * SETUP: Edit src/resources/database.properties with your MySQL credentials
  * 
  * @author Restaurant Management System
- * @version 2.0
+ * @version 2.1
  */
 public class DatabaseConfiguration {
     
-    // Database connection parameters - Configure these for MySQL Workbench
-    private static final String DB_HOST = "localhost";
-    private static final String DB_PORT = "3306";
-    private static final String DB_NAME = "restaurant_db";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "A9851040557@123a";
-    
-    // JDBC URL construction
-    private static final String DB_URL = "jdbc:mysql://%s:%s/%s?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true".formatted(
-            DB_HOST, DB_PORT, DB_NAME
-    );
+    // Configuration loaded from database.properties
+    private static String DB_HOST;
+    private static String DB_PORT;
+    private static String DB_NAME;
+    private static String DB_USER;
+    private static String DB_PASSWORD;
+    private static String DB_URL;
     
     // Connection pool settings
     private static final int MAX_POOL_SIZE = 10;
@@ -33,11 +34,84 @@ public class DatabaseConfiguration {
     
     private static DatabaseConfiguration instance;
     private Connection connection;
+    private static boolean configLoaded = false;
+    
+    /**
+     * Load database configuration from properties file
+     */
+    private static void loadConfiguration() {
+        if (configLoaded) return;
+        
+        Properties props = new Properties();
+        
+        // Try multiple locations for the properties file
+        String[] possiblePaths = {
+            "src/resources/database.properties",
+            "resources/database.properties",
+            "database.properties",
+            "../resources/database.properties"
+        };
+        
+        boolean loaded = false;
+        
+        // First try loading from classpath
+        try (InputStream is = DatabaseConfiguration.class.getClassLoader()
+                .getResourceAsStream("database.properties")) {
+            if (is != null) {
+                props.load(is);
+                loaded = true;
+                System.out.println("Loaded database config from classpath");
+            }
+        } catch (IOException e) {
+            // Continue to try file paths
+        }
+        
+        // Try file paths if classpath loading failed
+        if (!loaded) {
+            for (String path : possiblePaths) {
+                try (FileInputStream fis = new FileInputStream(path)) {
+                    props.load(fis);
+                    loaded = true;
+                    System.out.println("Loaded database config from: " + path);
+                    break;
+                } catch (IOException e) {
+                    // Try next path
+                }
+            }
+        }
+        
+        // Use defaults if no config file found
+        if (!loaded) {
+            System.out.println("No database.properties found, using defaults");
+            System.out.println("Create src/resources/database.properties to customize");
+        }
+        
+        // Load values with defaults
+        DB_HOST = props.getProperty("db.host", "localhost");
+        DB_PORT = props.getProperty("db.port", "3306");
+        DB_NAME = props.getProperty("db.name", "restaurant_db");
+        DB_USER = props.getProperty("db.username", "root");
+        DB_PASSWORD = props.getProperty("db.password", "");
+        
+        // Build JDBC URL
+        String useSSL = props.getProperty("db.useSSL", "false");
+        String serverTimezone = props.getProperty("db.serverTimezone", "UTC");
+        String allowPublicKeyRetrieval = props.getProperty("db.allowPublicKeyRetrieval", "true");
+        
+        DB_URL = String.format(
+            "jdbc:mysql://%s:%s/%s?useSSL=%s&serverTimezone=%s&allowPublicKeyRetrieval=%s",
+            DB_HOST, DB_PORT, DB_NAME, useSSL, serverTimezone, allowPublicKeyRetrieval
+        );
+        
+        configLoaded = true;
+        System.out.println("Database configured: " + DB_HOST + ":" + DB_PORT + "/" + DB_NAME);
+    }
     
     /**
      * Private constructor for singleton pattern
      */
     private DatabaseConfiguration() {
+        loadConfiguration();
         try {
             // Load MySQL JDBC Driver
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -79,6 +153,10 @@ public class DatabaseConfiguration {
             System.out.println("Database connection established successfully!");
         } catch (SQLException e) {
             System.err.println("Failed to establish database connection!");
+            System.err.println("Please check your database.properties configuration:");
+            System.err.println("  - Is MySQL running on " + DB_HOST + ":" + DB_PORT + "?");
+            System.err.println("  - Does database '" + DB_NAME + "' exist?");
+            System.err.println("  - Are username/password correct?");
             e.printStackTrace();
         }
     }
@@ -103,6 +181,23 @@ public class DatabaseConfiguration {
      * @throws SQLException if connection fails
      */
     public Connection createNewConnection() throws SQLException {
+        loadConfiguration(); // Ensure config is loaded
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("MySQL JDBC Driver not found", e);
+        }
+    }
+    
+    /**
+     * Get a static connection (for controllers that don't use singleton)
+     * 
+     * @return new Connection object
+     * @throws SQLException if connection fails
+     */
+    public static Connection getStaticConnection() throws SQLException {
+        loadConfiguration(); // Ensure config is loaded
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
