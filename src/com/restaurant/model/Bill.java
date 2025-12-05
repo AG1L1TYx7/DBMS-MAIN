@@ -25,6 +25,7 @@ public class Bill implements Serializable {
     private BigDecimal netAmount;
     private Integer totalItems;
     private BigDecimal taxAmount;
+    private BigDecimal discountAmount;
     private BigDecimal totalAmount;
     private BigDecimal cashReceived;
     private BigDecimal changeAmount;
@@ -65,6 +66,7 @@ public class Bill implements Serializable {
         this.paymentMethod = PaymentMethod.CASH;
         this.orderItems = new ArrayList<>();
         this.taxAmount = BigDecimal.ZERO;
+        this.discountAmount = BigDecimal.ZERO;
         generateBillNumber();
     }
     
@@ -135,6 +137,14 @@ public class Bill implements Serializable {
     
     public void setTaxAmount(BigDecimal taxAmount) {
         this.taxAmount = taxAmount;
+    }
+    
+    public BigDecimal getDiscountAmount() {
+        return discountAmount != null ? discountAmount : BigDecimal.ZERO;
+    }
+    
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
     
     public BigDecimal getTotalAmount() {

@@ -23,6 +23,9 @@ public class RestaurantTable implements Serializable {
     private TableStatus status;
     private String location;
     private String description;
+    private boolean reservable;
+    private Integer assignedServerId;
+    private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -131,6 +134,30 @@ public class RestaurantTable implements Serializable {
     
     public void setDescription(String description) {
         this.description = description;
+    }
+    
+    public boolean isReservable() {
+        return reservable;
+    }
+    
+    public void setReservable(boolean reservable) {
+        this.reservable = reservable;
+    }
+    
+    public Integer getAssignedServerId() {
+        return assignedServerId;
+    }
+    
+    public void setAssignedServerId(Integer assignedServerId) {
+        this.assignedServerId = assignedServerId;
+    }
+    
+    public String getNotes() {
+        return notes;
+    }
+    
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
     
     public LocalDateTime getCreatedAt() {
